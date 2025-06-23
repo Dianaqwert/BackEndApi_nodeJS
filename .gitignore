@@ -1,0 +1,8 @@
+
+# Evita subir claves privadas
+
+claveFireBase/
+
+.env
+
+node_modules
