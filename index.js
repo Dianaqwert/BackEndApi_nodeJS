@@ -26,8 +26,17 @@ const auth = admin.auth();
 
 // 3. Middlewares
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({
+  verify: (req, res, buf, encoding) => {
+    try {
+      console.log('--- Raw Request Body ---');
+      console.log(buf.toString(encoding));
+      console.log('------------------------');
+    } catch (e) {
+      console.error('ERROR: Could not buffer request body for logging.', e);
+    }
+  }
+}));
 
 // 4. Configuración de Nodemailer Transporter
 const transporter = nodemailer.createTransport({
@@ -94,35 +103,35 @@ app.post('/send-recovery-email', async (req, res) => {
 // --- ENDPOINT PARA CAMBIAR CONTRASEÑA Y DESBLOQUEAR ---
 app.post('/cambiar-contrasena', async (req, res) => {
   const { email, newPassword } = req.body;
-  console.log(req.body);
-  if (!email || !newPassword) {
-      return res.status(400).json({ message: 'El email y la nueva contraseña son requeridos.' });
-  }
 
-  try {
-      // Paso 1: Obtener el UID del usuario usando su email con privilegios de Admin.
-      const userRecord = await auth.getUserByEmail(email);
-      const uid = userRecord.uid;
+    if (!email || !newPassword) {
+        return res.status(400).json({ message: 'El email y la nueva contraseña son requeridos.' });
+    }
 
-      // Paso 2: Actualizar la contraseña en Firebase AUTHENTICATION.
-      await auth.updateUser(uid, {
-          password: newPassword,
-      });
+    try {
+        // Paso 1: Obtener el UID del usuario usando su email con privilegios de Admin.
+        const userRecord = await auth.getUserByEmail(email);
+        const uid = userRecord.uid;
 
-      // Paso 3: Actualizar el campo 'blocked' a false en FIRESTORE.
-      const userDocRef = db.collection('users').doc(uid);
-      await userDocRef.update({ blocked: false });
-      
-      console.log(`Contraseña actualizada y cuenta DESBLOQUEADA para: ${email}`);
-      res.status(200).json({ message: 'Tu contraseña ha sido actualizada y tu cuenta ha sido desbloqueada.' });
+        // Paso 2: Actualizar la contraseña en Firebase AUTHENTICATION.
+        await auth.updateUser(uid, {
+            password: newPassword,
+        });
 
-  } catch (error) {
-      console.error('Error al cambiar la contraseña:', error);
-      if (error.code === 'auth/user-not-found') {
-           return res.status(404).json({ message: 'No se encontró un usuario con ese correo electrónico.' });
-      }
-      res.status(500).json({ message: 'Ocurrió un error en el servidor.' });
-  }
+        // Paso 3: Actualizar el campo 'blocked' a false en FIRESTORE.
+        const userDocRef = db.collection('users').doc(uid);
+        await userDocRef.update({ blocked: false });
+        
+        console.log(`Contraseña actualizada y cuenta DESBLOQUEADA para: ${email}`);
+        res.status(200).json({ message: 'Tu contraseña ha sido actualizada y tu cuenta ha sido desbloqueada.' });
+
+    } catch (error) {
+        console.error('Error al cambiar la contraseña:', error);
+        if (error.code === 'auth/user-not-found') {
+             return res.status(404).json({ message: 'No se encontró un usuario con ese correo electrónico.' });
+        }
+        res.status(500).json({ message: 'Ocurrió un error en el servidor.' });
+    }
 });
 
 // ... (Resto de tus endpoints)
