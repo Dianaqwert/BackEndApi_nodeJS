@@ -4,7 +4,7 @@
 require('dotenv').config();
 const express = require('express');
 const nodemailer = require('nodemailer');
-const cors = require('cors');
+const cors = require('cors'); // <-- Importas cors
 const admin = require('firebase-admin');
 
 const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
@@ -12,33 +12,45 @@ const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
     : require('./serviceAccountKey.json');
 
 const app = express();
-// El puerto lo asignará Render automáticamente a través de process.env.PORT
 const port = process.env.PORT || 3000;
 
 // 2. Inicializar Firebase Admin SDK
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://prueba-1-9c56c-default-rtdb.firebaseio.com"
+  credential: admin.credential.cert(serviceAccount)
 });
 
 const db = admin.firestore();
-const auth = admin.auth();
+const auth = admin.auth(); 
 
-// 3. Middlewares
-app.use(cors());
-app.use(express.json({
-  verify: (req, res, buf, encoding) => {
-    try {
-      console.log('--- Raw Request Body ---');
-      console.log(buf.toString(encoding));
-      console.log('------------------------');
-    } catch (e) {
-      console.error('ERROR: Could not buffer request body for logging.', e);
+// --- 3. CONFIGURACIÓN DE CORS (LA SOLUCIÓN) ---
+
+// Lista de dominios que tienen permiso para acceder a tu API
+const whitelist = [
+    'http://localhost:4200', // Para tu desarrollo local
+    'https://tu-proyecto-angular.web.app', // <-- ¡IMPORTANTE! Reemplaza esto con la URL real de tu app en Firebase Hosting
+    'https://tu-proyecto-angular.firebaseapp.com' // <-- Añade esta también por si acaso
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Si el origen de la petición está en nuestra lista blanca, o si no hay origen (como en Postman), permitimos la petición.
+    if (whitelist.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
     }
   }
-}));
+};
 
-// 4. Configuración de Nodemailer Transporter
+// Usa la configuración de CORS en tu aplicación
+app.use(cors(corsOptions));
+
+
+// 4. Middlewares para parsear el body de las peticiones
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+// ... (tu configuración de Nodemailer)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -100,38 +112,30 @@ app.post('/send-recovery-email', async (req, res) => {
   }
 });
 
-// --- ENDPOINT PARA CAMBIAR CONTRASEÑA Y DESBLOQUEAR ---
 app.post('/cambiar-contrasena', async (req, res) => {
   const { email, newPassword } = req.body;
 
-    if (!email || !newPassword) {
-        return res.status(400).json({ message: 'El email y la nueva contraseña son requeridos.' });
-    }
+  if (!email || !newPassword) {
+      return res.status(400).json({ message: 'El email y la nueva contraseña son requeridos.' });
+  }
 
-    try {
-        // Paso 1: Obtener el UID del usuario usando su email con privilegios de Admin.
-        const userRecord = await auth.getUserByEmail(email);
-        const uid = userRecord.uid;
+  try {
+      const userRecord = await auth.getUserByEmail(email);
+      const uid = userRecord.uid;
+      await auth.updateUser(uid, { password: newPassword });
+      const userDocRef = db.collection('users').doc(uid);
+      await userDocRef.update({ blocked: false });
+      
+      console.log(`Contraseña actualizada y cuenta DESBLOQUEADA para: ${email}`);
+      res.status(200).json({ message: 'Tu contraseña ha sido actualizada y tu cuenta ha sido desbloqueada.' });
 
-        // Paso 2: Actualizar la contraseña en Firebase AUTHENTICATION.
-        await auth.updateUser(uid, {
-            password: newPassword,
-        });
-
-        // Paso 3: Actualizar el campo 'blocked' a false en FIRESTORE.
-        const userDocRef = db.collection('users').doc(uid);
-        await userDocRef.update({ blocked: false });
-        
-        console.log(`Contraseña actualizada y cuenta DESBLOQUEADA para: ${email}`);
-        res.status(200).json({ message: 'Tu contraseña ha sido actualizada y tu cuenta ha sido desbloqueada.' });
-
-    } catch (error) {
-        console.error('Error al cambiar la contraseña:', error);
-        if (error.code === 'auth/user-not-found') {
-             return res.status(404).json({ message: 'No se encontró un usuario con ese correo electrónico.' });
-        }
-        res.status(500).json({ message: 'Ocurrió un error en el servidor.' });
-    }
+  } catch (error) {
+      console.error('Error al cambiar la contraseña:', error);
+      if (error.code === 'auth/user-not-found') {
+           return res.status(404).json({ message: 'No se encontró un usuario con ese correo electrónico.' });
+      }
+      res.status(500).json({ message: 'Ocurrió un error en el servidor.' });
+  }
 });
 
 // ... (Resto de tus endpoints)
