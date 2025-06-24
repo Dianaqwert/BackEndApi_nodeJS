@@ -9,8 +9,9 @@ const admin = require('firebase-admin');
 
 // --- IMPORTANTE: Asegúrate de que la ruta al archivo de credenciales es correcta ---
 // Utiliza la ruta del segundo script o ajústala a tu estructura de proyecto.
-const serviceAccount = require('./serviceAccountKey.json'); // o './claveFireBase/prueba-1-9c56c-firebase-adminsdk-fbsvc-3b54d9d445.json'
-
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
+    : require('./serviceAccountKey.json');
 const app = express();
 const port = process.env.PORT || 3000;
 
