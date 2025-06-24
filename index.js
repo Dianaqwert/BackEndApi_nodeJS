@@ -94,7 +94,7 @@ app.post('/send-recovery-email', async (req, res) => {
 // --- ENDPOINT PARA CAMBIAR CONTRASEÑA Y DESBLOQUEAR ---
 app.post('/cambiar-contrasena', async (req, res) => {
   const { email, newPassword } = req.body;
-
+  console.log(req.body);
   if (!email || !newPassword) {
       return res.status(400).json({ message: 'El email y la nueva contraseña son requeridos.' });
   }
