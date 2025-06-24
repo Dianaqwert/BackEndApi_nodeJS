@@ -6,3 +6,4 @@ claveFireBase/
 .env
 
 node_modules
+serviceAccountKey.json
