@@ -93,8 +93,36 @@ app.post('/send-recovery-email', async (req, res) => {
 
 // --- ENDPOINT PARA CAMBIAR CONTRASEÑA Y DESBLOQUEAR ---
 app.post('/cambiar-contrasena', async (req, res) => {
-    // Tu código para este endpoint se mantiene igual.
-    // ...
+  const { email, newPassword } = req.body;
+
+  if (!email || !newPassword) {
+      return res.status(400).json({ message: 'El email y la nueva contraseña son requeridos.' });
+  }
+
+  try {
+      // Paso 1: Obtener el UID del usuario usando su email con privilegios de Admin.
+      const userRecord = await auth.getUserByEmail(email);
+      const uid = userRecord.uid;
+
+      // Paso 2: Actualizar la contraseña en Firebase AUTHENTICATION.
+      await auth.updateUser(uid, {
+          password: newPassword,
+      });
+
+      // Paso 3: Actualizar el campo 'blocked' a false en FIRESTORE.
+      const userDocRef = db.collection('users').doc(uid);
+      await userDocRef.update({ blocked: false });
+      
+      console.log(`Contraseña actualizada y cuenta DESBLOQUEADA para: ${email}`);
+      res.status(200).json({ message: 'Tu contraseña ha sido actualizada y tu cuenta ha sido desbloqueada.' });
+
+  } catch (error) {
+      console.error('Error al cambiar la contraseña:', error);
+      if (error.code === 'auth/user-not-found') {
+           return res.status(404).json({ message: 'No se encontró un usuario con ese correo electrónico.' });
+      }
+      res.status(500).json({ message: 'Ocurrió un error en el servidor.' });
+  }
 });
 
 // ... (Resto de tus endpoints)
