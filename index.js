@@ -27,8 +27,13 @@ const auth = admin.auth();
 // Lista de dominios que tienen permiso para acceder a tu API
 const whitelist = [
     'http://localhost:4200', // Para tu desarrollo local
-    'https://tu-proyecto-angular.web.app', // <-- ¡IMPORTANTE! Reemplaza esto con la URL real de tu app en Firebase Hosting
-    'https://tu-proyecto-angular.firebaseapp.com' // <-- Añade esta también por si acaso
+    'https://tu-proyecto-angular.web.app', 
+    'https://backendapi-raeda.onrender.com',
+    'https://-1-9c56c.firebaseapp.com',
+    'https://prueba-1-9c56c.web.app', 
+    'https://https://tu-proyecto-angular.firebaseapp.com',
+    'https://spa-28285.web.app', 
+    'https://spa-28285.web.app'    
 ];
 
 const corsOptions = {
